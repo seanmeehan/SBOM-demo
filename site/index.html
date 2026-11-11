@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SBoM Scanner</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2330;--line:#30363d;--fg:#e6edf3;--muted:#8b949e;
+--crit:#ff5c5c;--high:#ff9f43;--med:#f5d547;--low:#3fb950;--none:#6e7681;--accent:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:19px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;padding:32px clamp(16px,4vw,48px) 48px}
+a{color:var(--accent)}
+h1{font-size:clamp(32px,5vw,46px);margin:0 0 6px;letter-spacing:-.01em}
+.tag{color:var(--muted);font-size:clamp(17px,2vw,21px);margin:0 0 26px;max-width:62ch}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:28px;text-align:center;background:var(--panel);transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--panel2)}
+.drop b{font-size:22px} .drop p{color:var(--muted);margin:6px 0 16px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+button,.filebtn{font:inherit;font-size:17px;font-weight:600;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:#21262d;color:var(--fg);cursor:pointer}
+button.primary,.filebtn{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+button:hover,.filebtn:hover{filter:brightness(1.12)}
+input[type=file]{display:none}
+#status{margin:22px 0 0;color:var(--muted);min-height:1.4em}
+#status.err{color:var(--crit)}
+.meta{color:var(--muted);font-size:17px;margin:26px 0 14px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:26px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+.stat .n{font-size:46px;font-weight:750;line-height:1.1} .stat .l{color:var(--muted);font-size:15px;text-transform:uppercase;letter-spacing:.06em}
+.stat.bad .n{color:var(--crit)} .stat.warn .n{color:var(--high)} .stat.good .n{color:var(--low)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,540px),1fr));gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--low);border-radius:14px;padding:18px 22px;min-width:0}
+.card.critical{border-left-color:var(--crit)} .card.high{border-left-color:var(--high)} .card.medium{border-left-color:var(--med)} .card.unknown{border-left-color:var(--none)}
+.card.is-stale{box-shadow:0 0 0 2px var(--crit)}
+.card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+h2{margin:0;font-size:25px;word-break:break-word} .sub{color:var(--muted);font-size:16px}
+.badges{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+.badge{font-weight:800;font-size:14px;padding:5px 11px;border-radius:999px;color:#0d1117;letter-spacing:.05em;white-space:nowrap}
+.badge.critical{background:var(--crit)} .badge.high{background:var(--high)} .badge.medium{background:var(--med)} .badge.low{background:var(--low)} .badge.unknown{background:var(--none);color:var(--fg)}
+.badge.stale{background:transparent;color:var(--crit);border:2px solid var(--crit)}
+.vulns{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.vulns li{background:var(--panel2);border-radius:10px;padding:10px 14px;font-size:17px}
+.vulns .top{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.vulns code,code{font:15px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}
+.fix{color:var(--low);font-size:15px} .muted{color:var(--muted)}
+.impact{font-size:19px;margin:12px 0}
+dl{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;margin:0;font-size:17px}
+dt{color:var(--muted)} dd{margin:0;min-width:0;word-break:break-word} dd ul{margin:0;padding:0;list-style:none}
+em{color:var(--high);font-style:normal;font-weight:700}
+details.clean{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 20px}
+details.clean summary{cursor:pointer;font-weight:600}
+details.clean ul{columns:2 260px;margin:10px 0 0;padding-left:20px}
+h3{font-size:22px;margin:30px 0 12px}
+footer{color:var(--muted);font-size:15px;margin-top:34px}
+@media (max-width:600px){dl{grid-template-columns:1fr}.drop{padding:18px}}
+</style>
+</head>
+<body>
+<h1>SBoM Scanner</h1>
+<p class="tag">Drop in a software bill of materials (CycloneDX or SPDX JSON). Every package is checked against the
+<a href="https://osv.dev" target="_blank" rel="noopener">OSV.dev</a> vulnerability database, and service inventories show credential age and blast radius.
+Your file never leaves the browser; only package names and versions are sent to OSV.</p>
+
+<div class="drop" id="drop">
+  <b>Drop an SBOM file here</b>
+  <p>sbom.cdx.json, bom.json, *.spdx.json</p>
+  <div class="btns">
+    <label class="filebtn">Choose file<input type="file" id="file" accept=".json,application/json"></label>
+    <button id="sampleApp">Sample: app with vulnerable deps</button>
+    <button id="sampleSvc">Sample: Stripe Projects service SBoM</button>
+  </div>
+</div>
+<div id="status" role="status"></div>
+<main id="out"></main>
+<footer>Vulnerability data: OSV.dev (GitHub Advisories, PyPA, Go, RustSec and more). Severity from the advisory, or computed from its CVSS v3 vector.
+Service SBoMs are produced by the <code>sbom</code> CLI from a Stripe Projects stack; no secret values are ever included.</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const RANK = {critical:4, high:3, medium:2, low:1, unknown:0};
+const status = (msg, err) => { const s = $("#status"); s.textContent = msg; s.className = err ? "err" : ""; };
+
+/* ---------- parsing ---------- */
+function parsePurl(p) {
+  const m = /^pkg:([^/]+)\/(.+?)@([^?#]+)/.exec(p || "");
+  if (!m) return null;
+  const path = decodeURIComponent(m[2]);
+  return {type: m[1], name: path, version: decodeURIComponent(m[3])};
+}
+function collectCdx(list, out) {
+  for (const c of list || []) {
+    out.push({name: (c.group ? c.group + "/" : "") + c.name, version: c.version, purl: c.purl});
+    if (c.components) collectCdx(c.components, out);
+  }
+  return out;
+}
+function parseSbom(doc) {
+  if (doc.bomFormat === "CycloneDX") {
+    return {format: `CycloneDX ${doc.specVersion || ""}`.trim(),
+            name: doc.metadata?.component?.name || "unnamed",
+            packages: collectCdx(doc.components, []),
+            services: doc.services || []};
+  }
+  if (doc.spdxVersion) {
+    const packages = (doc.packages || []).map(p => ({
+      name: p.name, version: p.versionInfo,
+      purl: (p.externalRefs || []).find(r => (r.referenceType || "").toLowerCase() === "purl")?.referenceLocator
+    })).filter(p => p.name !== doc.name);
+    return {format: doc.spdxVersion, name: doc.name || "unnamed", packages, services: []};
+  }
+  throw new Error("Not a CycloneDX or SPDX JSON document");
+}
+
+/* ---------- CVSS v3 base score ---------- */
+function cvss3(vec) {
+  const m = Object.fromEntries((vec || "").split("/").slice(1).map(x => x.split(":")));
+  if (!/^CVSS:3/.test(vec) || !m.AV) return null;
+  const AV = {N:.85,A:.62,L:.55,P:.2}[m.AV], AC = {L:.77,H:.44}[m.AC], UI = {N:.85,R:.62}[m.UI];
+  const changed = m.S === "C";
+  const PR = {N:.85, L: changed ? .68 : .62, H: changed ? .5 : .27}[m.PR];
+  const cia = k => ({H:.56,L:.22,N:0}[m[k]]);
+  const iss = 1 - (1 - cia("C")) * (1 - cia("I")) * (1 - cia("A"));
+  const impact = changed ? 7.52 * (iss - .029) - 3.25 * Math.pow(iss - .02, 15) : 6.42 * iss;
+  if (impact <= 0) return 0;
+  const expl = 8.22 * AV * AC * PR * UI;
+  const up = x => Math.ceil(x * 10 - 1e-9) / 10;
+  return up(Math.min(changed ? 1.08 * (impact + expl) : impact + expl, 10));
+}
+const ratingFromScore = s => s == null ? "unknown" : s >= 9 ? "critical" : s >= 7 ? "high" : s >= 4 ? "medium" : s > 0 ? "low" : "unknown";
+function severityOf(v) {
+  const ds = (v.database_specific?.severity || "").toLowerCase();
+  const vec = (v.severity || []).find(s => s.type === "CVSS_V3")?.score;
+  const score = cvss3(vec);
+  if (ds) return {level: ds === "moderate" ? "medium" : ds, score};
+  return {level: ratingFromScore(score), score};
+}
+function fixedIn(v, pkgName) {
+  const fixes = new Set();
+  const norm = s => (s || "").toLowerCase().replace(/\//g, ":");  // maven: purl group/artifact vs OSV group:artifact
+  for (const a of v.affected || []) {
+    if (pkgName && a.package?.name && norm(a.package.name) !== norm(pkgName)) continue;
+    for (const r of a.ranges || []) for (const e of r.events || []) if (e.fixed && r.type !== "GIT") fixes.add(e.fixed);
+  }
+  return [...fixes].slice(0, 3);
+}
+
+/* ---------- OSV ---------- */
+async function osvScan(packages) {
+  const queryable = packages.filter(p => p.purl && parsePurl(p.purl));
+  const results = [];
+  for (let i = 0; i < queryable.length; i += 500) {
+    const chunk = queryable.slice(i, i + 500);
+    const r = await fetch("https://api.osv.dev/v1/querybatch", {method: "POST", headers: {"content-type": "application/json"},
+      body: JSON.stringify({queries: chunk.map(p => ({package: {purl: p.purl.split("?")[0]}}))})});
+    if (!r.ok) throw new Error(`OSV query failed (HTTP ${r.status})`);
+    const j = await r.json();
+    j.results.forEach((res, k) => results.push({pkg: chunk[k], ids: (res.vulns || []).map(v => v.id)}));
+  }
+  const ids = [...new Set(results.flatMap(r => r.ids))];
+  const details = {};
+  let done = 0;
+  const worker = async () => {
+    while (ids.length) {
+      const id = ids.pop();
+      try { const r = await fetch(`https://api.osv.dev/v1/vulns/${encodeURIComponent(id)}`); if (r.ok) details[id] = await r.json(); } catch {}
+      status(`Fetched ${++done} advisories…`);
+    }
+  };
+  await Promise.all(Array.from({length: 8}, worker));
+  return {queryable: queryable.length, unscannable: packages.length - queryable.length,
+          findings: results.map(r => ({pkg: r.pkg, vulns: dedupe(r.ids.map(id => details[id]).filter(Boolean), r.pkg)}))};
+}
+function dedupe(vulns, pkg) {
+  // OSV often lists the same CVE under GHSA + PYSEC ids: keep one per alias group, preferring one with a severity
+  const name = parsePurl(pkg.purl)?.name;
+  const enriched = vulns.map(v => ({v, sev: severityOf(v), keys: new Set([v.id, ...(v.aliases || [])]), fixed: fixedIn(v, name)}));
+  enriched.sort((a, b) => (b.sev.level !== "unknown") - (a.sev.level !== "unknown") || (a.v.id.startsWith("GHSA") ? -1 : 1));
+  const kept = [];
+  for (const e of enriched) if (!kept.some(k => [...e.keys].some(x => k.keys.has(x)))) kept.push(e);
+  return kept.sort((a, b) => RANK[b.sev.level] - RANK[a.sev.level] || (b.sev.score || 0) - (a.sev.score || 0));
+}
+
+/* ---------- rendering ---------- */
+const stat = (n, label, cls = "") => `<div class="stat ${cls}"><div class="n">${esc(n)}</div><div class="l">${esc(label)}</div></div>`;
+
+function renderPackages(sbom, scan) {
+  const vulnerable = scan.findings.filter(f => f.vulns.length)
+    .map(f => ({...f, worst: f.vulns[0].sev.level}))
+    .sort((a, b) => RANK[b.worst] - RANK[a.worst] || b.vulns.length - a.vulns.length);
+  const clean = scan.findings.filter(f => !f.vulns.length);
+  const all = vulnerable.flatMap(f => f.vulns);
+  const count = lvl => all.filter(v => v.sev.level === lvl).length;
+  let html = `<section class="summary">
+    ${stat(sbom.packages.length, "packages")}
+    ${stat(vulnerable.length, "vulnerable packages", vulnerable.length ? "bad" : "good")}
+    ${stat(all.length, "known vulnerabilities", all.length ? "warn" : "good")}
+    ${stat(count("critical"), "critical", count("critical") ? "bad" : "good")}
+    ${stat(count("high"), "high", count("high") ? "warn" : "good")}
+  </section>`;
+  if (vulnerable.length) {
+    html += `<h3>Vulnerable packages</h3><section class="grid">` + vulnerable.map(f => {
+      const p = parsePurl(f.pkg.purl);
+      const items = f.vulns.slice(0, 6).map(e => {
+        const cve = (e.v.aliases || []).find(a => a.startsWith("CVE-"));
+        return `<li><div class="top"><span class="badge ${e.sev.level}">${e.sev.level.toUpperCase()}${e.sev.score ? " " + e.sev.score.toFixed(1) : ""}</span>
+          <a href="https://osv.dev/vulnerability/${encodeURIComponent(e.v.id)}" target="_blank" rel="noopener"><code>${esc(cve || e.v.id)}</code></a></div>
+          <div>${esc(e.v.summary || (e.v.details || "").slice(0, 140) || "No summary")}</div>
+          ${e.fixed.length ? `<div class="fix">Fixed in ${e.fixed.map(esc).join(", ")}</div>` : `<div class="muted">No fixed version listed</div>`}</li>`;
+      }).join("");
+      const more = f.vulns.length > 6 ? `<li class="muted">+ ${f.vulns.length - 6} more</li>` : "";
+      return `<article class="card ${f.worst}"><header><div><h2>${esc(p.name)}@${esc(p.version)}</h2>
+        <div class="sub">${esc(p.type)} · ${f.vulns.length} vulnerabilit${f.vulns.length === 1 ? "y" : "ies"}</div></div>
+        <div class="badges"><span class="badge ${f.worst}">${f.worst.toUpperCase()}</span></div></header>
+        <ul class="vulns">${items}${more}</ul></article>`;
+    }).join("") + `</section>`;
+  }
+  if (clean.length) html += `<details class="clean"><summary>${clean.length} package${clean.length === 1 ? "" : "s"} with no known vulnerabilities</summary><ul>` +
+    clean.map(f => { const p = parsePurl(f.pkg.purl); return `<li><code>${esc(p.name)}@${esc(p.version)}</code></li>`; }).join("") + `</ul></details>`;
+  if (scan.unscannable) html += `<p class="muted">${scan.unscannable} component(s) had no package URL (purl) and could not be checked.</p>`;
+  return html;
+}
+
+function renderServices(services) {
+  const prop = (s, k) => (s.properties || []).find(p => p.name === k)?.value;
+  const rows = services.map(s => ({s, sev: prop(s, "sbom:blast_radius:severity") || "unknown", stale: prop(s, "sbom:credential:stale") === "true"}))
+    .sort((a, b) => b.stale - a.stale || RANK[b.sev] - RANK[a.sev]);
+  const cost = services.reduce((t, s) => t + (parseFloat(prop(s, "sbom:cost:monthly_usd")) || 0), 0);
+  const stale = rows.filter(r => r.stale).length, crit = rows.filter(r => r.sev === "critical").length;
+  let html = `<h3>Services</h3><section class="summary">
+    ${stat(services.length, "services")}
+    ${stat("$" + cost.toFixed(2), "monthly cost")}
+    ${stat(stale, "stale credentials", stale ? "bad" : "good")}
+    ${stat(crit, "critical exposures", crit ? "bad" : "good")}
+  </section><section class="grid">`;
+  html += rows.map(({s, sev, stale}) => {
+    const age = parseFloat(prop(s, "sbom:credential:age_days"));
+    const sim = prop(s, "sbom:credential:simulated") === "true";
+    const vars = (prop(s, "sbom:credential:env_vars") || "").split(",").filter(Boolean);
+    const secrets = new Set((prop(s, "sbom:credential:secret_env_vars") || "").split(","));
+    const files = (prop(s, "sbom:blast_radius:referencing_files") || "").split(",").filter(Boolean);
+    const ageTxt = isNaN(age) ? "unknown" : age < 1 ? `${Math.max(1, Math.round(age * 24))} h` : `${Math.round(age)} days`;
+    return `<article class="card ${sev}${stale ? " is-stale" : ""}"><header><div><h2>${esc(s.name)}</h2>
+      <div class="sub">${esc(s.provider?.name || s.group || "")} · ${esc(prop(s, "sbom:kind") || "service")} · data: ${esc(s.data?.[0]?.classification || "n/a")}</div></div>
+      <div class="badges">${stale ? `<span class="badge stale">STALE</span>` : ""}<span class="badge ${sev}">${esc(sev.toUpperCase())}</span></div></header>
+      <p class="impact">${esc(prop(s, "sbom:blast_radius:impact") || s.description || "")}</p>
+      <dl><dt>Plan / cost</dt><dd>${esc(prop(s, "sbom:cost:label") || "unknown")}</dd>
+      <dt>Credential age</dt><dd>${esc(ageTxt)}${sim ? " <em>(simulated)</em>" : ""}<div class="muted" style="font-size:14px">source: ${esc(prop(s, "sbom:credential:age_source") || "n/a")}</div></dd>
+      <dt>Env vars</dt><dd><ul>${vars.map(v => `<li><code>${esc(v)}</code>${secrets.has(v) ? "" : ' <span class="muted" style="font-size:13px">config</span>'}</li>`).join("") || '<li class="muted">none</li>'}</ul></dd>
+      <dt>Used in</dt><dd><ul>${files.map(f => `<li><code>${esc(f)}</code></li>`).join("") || '<li class="muted">not referenced in code</li>'}</ul></dd></dl></article>`;
+  }).join("");
+  return html + `</section>`;
+}
+
+async function handle(text, label) {
+  $("#out").innerHTML = "";
+  let sbom;
+  try { sbom = parseSbom(JSON.parse(text)); }
+  catch (e) { return status(`Could not read ${label}: ${e.message}`, true); }
+  let html = `<div class="meta"><b>${esc(sbom.name)}</b> · ${esc(sbom.format)} · ${sbom.packages.length} packages · ${sbom.services.length} services · from ${esc(label)}</div>`;
+  if (sbom.packages.length) {
+    status(`Checking ${sbom.packages.length} packages against OSV.dev…`);
+    try { html += renderPackages(sbom, await osvScan(sbom.packages)); }
+    catch (e) { return status(`Vulnerability lookup failed: ${e.message}. Check your connection and retry.`, true); }
+  }
+  if (sbom.services.length) html += renderServices(sbom.services);
+  if (!sbom.packages.length && !sbom.services.length) html += `<p class="muted">This SBOM lists no packages or services.</p>`;
+  $("#out").innerHTML = html;
+  status(`Scanned at ${new Date().toLocaleTimeString()}`);
+}
+
+const readFile = f => f && f.text().then(t => handle(t, f.name));
+$("#file").addEventListener("change", e => readFile(e.target.files[0]));
+const drop = $("#drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => readFile(e.dataTransfer.files[0]));
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => { e.preventDefault(); if (!drop.contains(e.target)) readFile(e.dataTransfer.files[0]); });
+const sample = (path, label) => fetch(path).then(r => r.text()).then(t => handle(t, label)).catch(e => status(`Could not load sample: ${e.message}`, true));
+$("#sampleApp").onclick = () => sample("samples/demo-app.cdx.json", "sample app SBOM");
+$("#sampleSvc").onclick = () => sample("samples/services.cdx.json", "Stripe Projects service SBoM");
+</script>
+</body>
+</html>

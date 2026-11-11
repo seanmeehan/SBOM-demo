@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Service Bill of Materials</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--muted:#8b949e;
+--crit:#ff5c5c;--high:#ff9f43;--med:#f5d547;--low:#3fb950;--accent:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:20px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;padding:32px 40px}
+h1{font-size:44px;margin:0 0 4px} .meta{color:var(--muted);font-size:18px;margin-bottom:28px}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px}
+.stat .n{font-size:52px;font-weight:700;line-height:1.1} .stat .l{color:var(--muted);font-size:18px;text-transform:uppercase;letter-spacing:.06em}
+.stat.bad .n{color:var(--crit)} .stat.good .n{color:var(--low)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--low);border-radius:14px;padding:20px 24px}
+.card.sev-critical{border-left-color:var(--crit)} .card.sev-high{border-left-color:var(--high)} .card.sev-medium{border-left-color:var(--med)}
+.card.is-stale{box-shadow:0 0 0 2px var(--crit)}
+.card header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+h2{margin:0;font-size:28px} .sub{color:var(--muted);font-size:17px}
+.badges{display:flex;gap:8px;flex-shrink:0}
+.badge{font-weight:800;font-size:16px;padding:6px 12px;border-radius:999px;color:#0d1117;letter-spacing:.05em}
+.badge.critical{background:var(--crit)} .badge.high{background:var(--high)} .badge.medium{background:var(--med)} .badge.low{background:var(--low)}
+.badge.stale{background:transparent;color:var(--crit);border:2px solid var(--crit)}
+.impact{font-size:21px;margin:14px 0}
+dl{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;margin:0;font-size:18px}
+dt{color:var(--muted)} dd{margin:0} ul{margin:0;padding:0;list-style:none}
+code{font:17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}
+.fp{font:16px ui-monospace,Menlo,monospace;background:#21262d;padding:1px 8px;border-radius:6px;color:var(--muted)}
+.cfg{font-size:14px;color:var(--muted)} .src{color:var(--muted);font-size:15px} em{color:var(--high);font-style:normal;font-weight:700}
+.muted{color:var(--muted)}
+footer{color:var(--muted);font-size:15px;margin-top:28px}
+@media (max-width:700px){body{padding:16px}.summary{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}dl{grid-template-columns:1fr}}
+</style></head><body>
+<h1>Service Bill of Materials</h1>
+<div class="meta">Project <b>sbom-demo</b> · generated 2026-11-11T12:51:49.834Z · stale threshold 30 days · CycloneDX 1.5: <code>sbom.cdx.json</code></div>
+<section class="summary">
+  <div class="stat"><div class="n">9</div><div class="l">resources (5 services)</div></div>
+  <div class="stat"><div class="n">$0.00</div><div class="l">monthly cost</div></div>
+  <div class="stat good"><div class="n">0</div><div class="l">stale credentials</div></div>
+  <div class="stat bad"><div class="n">2</div><div class="l">critical exposures</div></div>
+</section>
+<section class="grid">
+<article class="card sev-critical">
+  <header>
+    <div><h2>clerk-auth</h2><div class="sub">Clerk · auth · service</div></div>
+    <div class="badges"><span class="badge critical">CRITICAL</span></div>
+  </header>
+  <p class="impact">Can impersonate any user, mint sessions and read your entire user directory.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free with hobby</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>CLERK_APPLICATION_ID</code> <span class='cfg'>config</span></li><li><code>CLERK_DASHBOARD_URL</code> <span class='cfg'>config</span></li><li><code>CLERK_ENVIRONMENTS</code> <span class='fp'>{&quot;de…</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li><code>app/lib/auth.js</code></li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-critical">
+  <header>
+    <div><h2>neon-postgres</h2><div class="sub">Neon · postgres · service</div></div>
+    <div class="badges"><span class="badge critical">CRITICAL</span></div>
+  </header>
+  <p class="impact">Full read/write access to customer data; an attacker can dump or drop every table.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>14 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>NEON_POSTGRES_BRANCH_ID</code> <span class='cfg'>config</span></li><li><code>NEON_POSTGRES_BRANCH_NAME</code> <span class='cfg'>config</span></li><li><code>NEON_POSTGRES_CONNECTION_STRING</code> <span class='fp'>post…</span></li><li><code>NEON_POSTGRES_DATABASE_NAME</code> <span class='cfg'>config</span></li><li><code>NEON_POSTGRES_ORG_ID</code> <span class='cfg'>config</span></li><li><code>NEON_POSTGRES_PROJECT_ID</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li><code>app/lib/db.js</code></li><li><code>app/routes/orders.js</code></li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-high">
+  <header>
+    <div><h2>openrouter-api</h2><div class="sub">OpenRouter · api · service</div></div>
+    <div class="badges"><span class="badge high">HIGH</span></div>
+  </header>
+  <p class="impact">Attacker runs LLM calls billed to you: unbounded spend, plus prompt/response data exposure.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>OPENROUTER_API_API_KEY</code> <span class='fp'>sk-o…</span></li><li><code>OPENROUTER_API_TYPE</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li><code>app/lib/ai.js</code></li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-high">
+  <header>
+    <div><h2>posthog-analytics</h2><div class="sub">PostHog · analytics · service</div></div>
+    <div class="badges"><span class="badge high">HIGH</span></div>
+  </header>
+  <p class="impact">Personal API key grants admin read of all tracked events and user data, plus event injection.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>POSTHOG_ANALYTICS_API_KEY</code> <span class='fp'>phc_…</span></li><li><code>POSTHOG_ANALYTICS_HOST</code> <span class='cfg'>config</span></li><li><code>POSTHOG_ANALYTICS_PERSONAL_API_KEY</code> <span class='fp'>phx_…</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li><code>app/lib/analytics.js</code></li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-high">
+  <header>
+    <div><h2>sbom-site</h2><div class="sub">Netlify · project · service</div></div>
+    <div class="badges"><span class="badge high">HIGH</span></div>
+  </header>
+  <p class="impact">Can deploy arbitrary code to your live site: defacement, phishing or credential harvesting.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>1 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>NETLIFY_NETLIFY_AUTH_TOKEN</code> <span class='fp'>nfc_…</span></li><li><code>NETLIFY_NETLIFY_SITE_ID</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li class='muted'>not referenced in code</li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-high">
+  <header>
+    <div><h2>openrouter-plan</h2><div class="sub">OpenRouter · free · plan</div></div>
+    <div class="badges"><span class="badge high">HIGH</span></div>
+  </header>
+  <p class="impact">Attacker runs LLM calls billed to you: unbounded spend, plus prompt/response data exposure.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>OPENROUTER_PLAN_API_KEY</code> <span class='fp'>sk-o…</span></li><li><code>OPENROUTER_PLAN_TYPE</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li class='muted'>not referenced in code</li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-high">
+  <header>
+    <div><h2>posthog-plan</h2><div class="sub">PostHog · free · plan</div></div>
+    <div class="badges"><span class="badge high">HIGH</span></div>
+  </header>
+  <p class="impact">Personal API key grants admin read of all tracked events and user data, plus event injection.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>POSTHOG_PLAN_API_KEY</code> <span class='fp'>phc_…</span></li><li><code>POSTHOG_PLAN_HOST</code> <span class='cfg'>config</span></li><li><code>POSTHOG_PLAN_PERSONAL_API_KEY</code> <span class='fp'>phx_…</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li class='muted'>not referenced in code</li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-low">
+  <header>
+    <div><h2>clerk-plan</h2><div class="sub">Clerk · hobby · plan</div></div>
+    <div class="badges"><span class="badge low">LOW</span></div>
+  </header>
+  <p class="impact">Identifiers and config only; no secret material in this resource.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>CLERK_PLAN</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li class='muted'>not referenced in code</li></ul></dd>
+  </dl>
+</article>
+<article class="card sev-low">
+  <header>
+    <div><h2>neon-plan</h2><div class="sub">Neon · free · plan</div></div>
+    <div class="badges"><span class="badge low">LOW</span></div>
+  </header>
+  <p class="impact">Identifiers and config only; no secret material in this resource.</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>Free</dd>
+    <dt>Credential age</dt><dd>29 min<div class="src">source: stripe projects status: last_revealed_at</div></dd>
+    <dt>Env vars</dt><dd><ul><li><code>NEON_PLAN_ORG_ID</code> <span class='cfg'>config</span></li></ul></dd>
+    <dt>Used in</dt><dd><ul><li class='muted'>not referenced in code</li></ul></dd>
+  </dl>
+</article></section>
+<footer>Secret values are never read or shown. Fingerprints are the CLI's own redacted previews (≤4 chars). Ages marked (simulated) were backdated with <code>sbom demo-age</code>.</footer>
+</body></html>

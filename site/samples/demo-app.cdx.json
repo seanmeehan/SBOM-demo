@@ -1,0 +1,101 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:dda1bc8c-f79e-4e5d-8d76-83d2667cbeae",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "app",
+      "name": "acme-storefront",
+      "version": "1.4.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/express@4.17.1",
+      "name": "express",
+      "version": "4.17.1",
+      "purl": "pkg:npm/express@4.17.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/lodash@4.17.15",
+      "name": "lodash",
+      "version": "4.17.15",
+      "purl": "pkg:npm/lodash@4.17.15"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/axios@0.21.0",
+      "name": "axios",
+      "version": "0.21.0",
+      "purl": "pkg:npm/axios@0.21.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/jsonwebtoken@8.5.1",
+      "name": "jsonwebtoken",
+      "version": "8.5.1",
+      "purl": "pkg:npm/jsonwebtoken@8.5.1"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/minimist@1.2.0",
+      "name": "minimist",
+      "version": "1.2.0",
+      "purl": "pkg:npm/minimist@1.2.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/node-fetch@2.6.0",
+      "name": "node-fetch",
+      "version": "2.6.0",
+      "purl": "pkg:npm/node-fetch@2.6.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/pg@8.11.3",
+      "name": "pg",
+      "version": "8.11.3",
+      "purl": "pkg:npm/pg@8.11.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:npm/react@18.2.0",
+      "name": "react",
+      "version": "18.2.0",
+      "purl": "pkg:npm/react@18.2.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/requests@2.25.0",
+      "name": "requests",
+      "version": "2.25.0",
+      "purl": "pkg:pypi/requests@2.25.0"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/jinja2@2.11.2",
+      "name": "jinja2",
+      "version": "2.11.2",
+      "purl": "pkg:pypi/jinja2@2.11.2"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/flask@2.3.3",
+      "name": "flask",
+      "version": "2.3.3",
+      "purl": "pkg:pypi/flask@2.3.3"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+      "name": "log4j-core",
+      "version": "2.14.1",
+      "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+      "group": "org.apache.logging.log4j"
+    }
+  ]
+}

@@ -1,0 +1,665 @@
+#!/usr/bin/env python3
+"""sbom — Service Bill of Materials for a Stripe Projects stack.
+
+Never reads .env or the vault. Credential previews come from
+`stripe projects env --json`, which the CLI already redacts.
+"""
+import argparse
+import datetime as dt
+import html
+import json
+import os
+import re
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
+ROOT = Path.cwd()
+STATE_DIR = ROOT / ".sbom"
+LEDGER = STATE_DIR / "ledger.json"
+CATALOG_CACHE = STATE_DIR / "catalog.json"
+CDX_OUT = ROOT / "sbom.cdx.json"
+HTML_OUT = ROOT / "report.html"
+DEFAULT_MAX_AGE = int(os.environ.get("SBOM_MAX_AGE_DAYS", "30"))
+
+SKIP_DIRS = {".git", "site", ".projects", ".sbom", ".agents", ".claude", ".cursor", "node_modules", "__pycache__"}
+SKIP_FILES = {".env", "sbom", "sbom.cdx.json", "report.html", "AGENTS.md", "CLAUDE.md"}
+
+SECRET_RE = re.compile(r"(KEY|SECRET|TOKEN|PASSWORD|CONNECTION_STRING|DSN|ENVIRONMENTS)$")
+
+SEVERITY = {"database": "critical", "auth": "critical", "payments": "high", "ai": "high",
+            "email": "high", "storage": "high", "analytics": "medium", "observability": "medium",
+            "feature_flags": "medium", "compute": "high", "hosting": "high", "cdn": "high"}
+SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+IMPACT = {
+    "database": "Full read/write access to customer data; an attacker can dump or drop every table.",
+    "auth": "Can impersonate any user, mint sessions and read your entire user directory.",
+    "ai": "Attacker runs LLM calls billed to you: unbounded spend, plus prompt/response data exposure.",
+    "payments": "Can move money, issue refunds and read customer payment details.",
+    "email": "Can send phishing from your verified domain and read delivery logs.",
+    "storage": "Read/write access to stored files and user uploads.",
+    "analytics": "Can inject fake events and skew metrics; tracked user behaviour may leak.",
+    "observability": "Can read logs and traces, which often contain PII and tokens.",
+    "compute": "Can deploy arbitrary code to your live site: defacement, phishing or credential harvesting.",
+    "hosting": "Can deploy arbitrary code to your live site: defacement, phishing or credential harvesting.",
+    "cdn": "Can replace the content your users are served.",
+}
+DATA_CLASS = {"database": "PII", "auth": "PII", "payments": "PCI", "ai": "Confidential",
+              "email": "PII", "analytics": "PII", "observability": "Confidential"}
+ENDPOINTS = {"Neon": ["https://console.neon.tech"], "Clerk": ["https://api.clerk.com"],
+             "OpenRouter": ["https://openrouter.ai/api/v1"], "PostHog": ["https://eu.posthog.com"],
+             "Netlify": ["https://api.netlify.com"], "Supabase": ["https://supabase.com"], "Resend": ["https://api.resend.com"]}
+
+
+# ---------- Stripe CLI ----------
+
+def stripe(*args, timeout=300):
+    """Run `stripe projects ... --json` and return the parsed envelope. Reads stdout only."""
+    cmd = ["stripe", "projects", *args, "--json"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        sys.exit("error: stripe CLI not found on PATH")
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": {"code": "TIMEOUT", "message": f"{' '.join(cmd[:4])} timed out"}}
+    out = proc.stdout
+    start = out.find("{")  # the CLI may print a hint line before the JSON
+    if start < 0:
+        return {"ok": False, "error": {"code": "NO_JSON", "message": f"no JSON from {' '.join(cmd[:4])}"}}
+    try:
+        return json.loads(out[start:])
+    except json.JSONDecodeError:
+        return {"ok": False, "error": {"code": "BAD_JSON", "message": f"unparseable JSON from {' '.join(cmd[:4])}"}}
+
+
+def must(envelope, what):
+    if not envelope.get("ok"):
+        err = envelope.get("error") or {}
+        if err.get("code") == "NOT_AUTHENTICATED":
+            sys.exit("error: Stripe session expired. Run `stripe login`, then retry.")
+        sys.exit(f"error: {what} failed ({err.get('code')}): {err.get('message', '')[:300]}")
+    return envelope["data"]
+
+
+def load_catalog():
+    """Catalog is ~500KB and slow; cache it for a day."""
+    if CATALOG_CACHE.exists():
+        age = dt.datetime.now().timestamp() - CATALOG_CACHE.stat().st_mtime
+        if age < 86400:
+            return json.loads(CATALOG_CACHE.read_text())
+    env = stripe("catalog", timeout=120)
+    if not env.get("ok"):
+        return {}
+    index = {}
+    for s in env["data"].get("services", []):
+        prov = s.get("provider")
+        prov = prov.get("id") if isinstance(prov, dict) else prov
+        index[f"{prov}/{s.get('service_id')}"] = {
+            "categories": s.get("categories") or [],
+            "kind": s.get("kind"),
+            "description": (s.get("description") or "")[:200],
+            "paid": ((s.get("pricing") or {}).get("paid") or {}).get("freeform"),
+        }
+    STATE_DIR.mkdir(exist_ok=True)
+    CATALOG_CACHE.write_text(json.dumps(index))
+    return index
+
+
+# ---------- ledger ----------
+
+def now():
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def iso(t):
+    return t.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+
+def parse_ts(s):
+    return dt.datetime.fromisoformat(s.replace("Z", "+00:00")) if s else None
+
+
+def load_ledger():
+    if LEDGER.exists():
+        return json.loads(LEDGER.read_text())
+    return {"version": 1, "resources": {}}
+
+
+def save_ledger(ledger):
+    STATE_DIR.mkdir(exist_ok=True)
+    LEDGER.write_text(json.dumps(ledger, indent=2))
+    os.chmod(LEDGER, 0o600)
+
+
+# ---------- scan ----------
+
+def fingerprint(preview):
+    """Turn the CLI's already-redacted preview into at most 4 chars + '…'."""
+    if not preview:
+        return "…"
+    visible = preview.replace("•", "")
+    return visible[:4] + "…"
+
+
+def grep_refs(var_names):
+    refs = {v: [] for v in var_names}
+    if not var_names:
+        return refs
+    pat = re.compile(r"\b(" + "|".join(map(re.escape, var_names)) + r")\b")
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for fn in filenames:
+            if fn in SKIP_FILES or fn.startswith(".env"):
+                continue
+            path = Path(dirpath) / fn
+            try:
+                text = path.read_text(errors="ignore")
+            except OSError:
+                continue
+            rel = str(path.relative_to(ROOT))
+            for m in set(pat.findall(text)):
+                refs[m].append(rel)
+    return {k: sorted(v) for k, v in refs.items()}
+
+
+def monthly_cost(pricing_str, catalog_paid):
+    p = (pricing_str or "").lower()
+    if p.startswith("free"):
+        return 0.0, pricing_str
+    m = re.search(r"\$(\d+(?:\.\d+)?)\s*(?:/|per\s*)mo", pricing_str or "")
+    if m:
+        return float(m.group(1)), pricing_str
+    return None, pricing_str or catalog_paid or "unknown"
+
+
+def scan(max_age, quiet=False):
+    status = must(stripe("status"), "stripe projects status")
+    env = stripe("env")
+    if not env.get("ok") and "vault" in ((env.get("error") or {}).get("message") or "").lower():
+        stripe("env", "--pull")  # rebuild the machine-local vault (e.g. after re-login), then retry
+        env = stripe("env")
+    envdata = must(env, "stripe projects env")
+    catalog = load_catalog()
+    ledger = load_ledger()
+
+    vars_by_res = {}
+    previews = {}
+    for rac in envdata.get("resource_access_configurations", []):
+        vars_by_res[rac["resource_id"]] = rac.get("access_configuration_keys", [])
+        previews.update(rac.get("access_configuration") or {})
+
+    resources = [(r, "service") for r in status.get("services", [])] + \
+                [(r, "plan") for r in status.get("plans", [])]
+    all_vars = [v for r, _ in resources for v in vars_by_res.get(r["id"], [])]
+    refs = grep_refs(all_vars)
+
+    items = []
+    for r, kind in resources:
+        name = r["name"]
+        cat = catalog.get(f"{r['provider_id']}/{r['service_id']}", {})
+        categories = cat.get("categories") or []
+        primary = categories[0] if categories else "other"
+
+        env_vars = vars_by_res.get(r["id"], [])
+        secrets = [v for v in env_vars if SECRET_RE.search(v)]
+        files = sorted({f for v in env_vars for f in refs.get(v, [])})
+
+        # credential age: simulated > CLI timestamp > ledger first-seen
+        entry = ledger["resources"].setdefault(name, {"first_seen": iso(now())})
+        cli_issued = r.get("last_revealed_at") or r.get("created_at")
+        entry["cli_issued_at"] = cli_issued
+        sim = entry.get("simulated")
+        if sim and sim.get("cli_issued_at_when_set") != cli_issued:
+            entry.pop("simulated")  # credential was re-issued since backdating
+            sim = None
+        if sim:
+            issued, source = parse_ts(sim["issued_at"]), "simulated (sbom demo-age)"
+        elif cli_issued:
+            issued = parse_ts(cli_issued)
+            source = "stripe projects status: last_revealed_at" if r.get("last_revealed_at") else "stripe projects status: created_at"
+        else:
+            issued, source = parse_ts(entry["first_seen"]), "sbom ledger: first seen"
+        age_days = (now() - issued).total_seconds() / 86400
+        stale = bool(secrets) and age_days > max_age
+
+        severity = SEVERITY.get(primary, "low")
+        impact = IMPACT.get(primary, "Limited impact: provider-specific access.")
+        if any("PERSONAL_API_KEY" in v for v in secrets):
+            severity = "high"
+            impact = "Personal API key grants admin read of all tracked events and user data, plus event injection."
+        if not secrets:
+            severity = "low"
+            impact = "Identifiers and config only; no secret material in this resource."
+
+        cost, cost_label = monthly_cost(r.get("pricing"), cat.get("paid"))
+        items.append({
+            "name": name, "kind": kind, "provider": r["provider"], "service": r["service_id"],
+            "resource_id": r["id"], "categories": categories, "category": primary,
+            "plan": r.get("pricing"), "cost": cost, "cost_label": cost_label,
+            "env_vars": [{"name": v, "secret": v in secrets,
+                          "fingerprint": fingerprint(previews.get(v)) if v in secrets else None,
+                          "files": refs.get(v, [])} for v in env_vars],
+            "files": files, "issued_at": iso(issued), "age_days": round(age_days, 2),
+            "age_source": source, "simulated": bool(sim), "stale": stale,
+            "severity": severity, "impact": impact,
+            "status": r.get("status"), "created_at": r.get("created_at"),
+            "last_rotated_by_sbom": entry.get("last_rotated"),
+        })
+    save_ledger(ledger)
+
+    items.sort(key=lambda i: (-SEV_RANK[i["severity"]], i["kind"] != "service", i["name"]))
+    meta = {"project": status["project"]["name"], "project_id": status["project"]["id"],
+            "generated_at": iso(now()), "max_age_days": max_age}
+    write_cdx(meta, items)
+    write_html(meta, items)
+    if not quiet:
+        print_table(items, max_age)
+        print(f"\nwrote {CDX_OUT.name} and {HTML_OUT.name}")
+    return items
+
+
+# ---------- outputs ----------
+
+def summary(items):
+    costs = [i["cost"] for i in items]
+    known = sum(c for c in costs if c is not None)
+    return {
+        "resources": len(items),
+        "services": sum(1 for i in items if i["kind"] == "service"),
+        "monthly_cost": f"${known:,.2f}" + ("+" if None in costs else ""),
+        "stale": sum(1 for i in items if i["stale"]),
+        "critical": sum(1 for i in items if i["severity"] == "critical"),
+    }
+
+
+def write_cdx(meta, items):
+    services = []
+    for i in items:
+        props = {
+            "sbom:kind": i["kind"],
+            "sbom:category": ",".join(i["categories"]) or "other",
+            "sbom:plan": i["plan"] or "",
+            "sbom:cost:monthly_usd": "" if i["cost"] is None else f"{i['cost']:.2f}",
+            "sbom:cost:label": i["cost_label"] or "",
+            "sbom:credential:env_vars": ",".join(v["name"] for v in i["env_vars"]),
+            "sbom:credential:secret_env_vars": ",".join(v["name"] for v in i["env_vars"] if v["secret"]),
+            "sbom:credential:issued_at": i["issued_at"],
+            "sbom:credential:age_days": f"{i['age_days']:.1f}",
+            "sbom:credential:age_source": i["age_source"],
+            "sbom:credential:simulated": str(i["simulated"]).lower(),
+            "sbom:credential:stale": str(i["stale"]).lower(),
+            "sbom:credential:max_age_days": str(meta["max_age_days"]),
+            "sbom:blast_radius:severity": i["severity"],
+            "sbom:blast_radius:impact": i["impact"],
+            "sbom:blast_radius:referencing_files": ",".join(i["files"]),
+            "stripe:projects:resource_id": i["resource_id"],
+        }
+        services.append({
+            "bom-ref": f"service:{i['name']}",
+            "provider": {"name": i["provider"]},
+            "group": i["provider"],
+            "name": i["name"],
+            "description": f"{i['provider']} {i['service']} ({i['kind']}) provisioned via Stripe Projects",
+            "endpoints": ENDPOINTS.get(i["provider"], []),
+            "authenticated": True,
+            "x-trust-boundary": True,
+            "data": [{"flow": "bi-directional",
+                      "classification": DATA_CLASS.get(i["category"], "Internal") if i["env_vars"] else "Public"}],
+            "properties": [{"name": k, "value": v} for k, v in props.items()],
+        })
+    doc = {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "version": 1,
+        "metadata": {
+            "timestamp": meta["generated_at"],
+            "tools": {"components": [{"type": "application", "name": "sbom", "version": "0.1.0",
+                                      "description": "Service Bill of Materials for Stripe Projects"}]},
+            "component": {"type": "application", "bom-ref": "app", "name": meta["project"]},
+            "properties": [{"name": "stripe:projects:project_id", "value": meta["project_id"]}],
+        },
+        "services": services,
+        "dependencies": [{"ref": "app", "dependsOn": [s["bom-ref"] for s in services]}],
+    }
+    CDX_OUT.write_text(json.dumps(doc, indent=2))
+
+
+def fmt_age(days):
+    if days < 1 / 24:
+        return f"{max(1, round(days * 1440))} min"
+    if days < 1:
+        return f"{round(days * 24)} h"
+    return f"{days:.0f} days"
+
+
+def print_table(items, max_age):
+    s = summary(items)
+    print(f"{s['resources']} resources ({s['services']} services) · {s['monthly_cost']}/mo · "
+          f"{s['stale']} stale (> {max_age}d) · {s['critical']} critical")
+    print(f"{'RESOURCE':20} {'KIND':8} {'RISK':9} {'AGE':10} {'SOURCE':42} STATUS")
+    for i in items:
+        flag = "STALE" if i["stale"] else "ok"
+        sim = " (simulated)" if i["simulated"] else ""
+        print(f"{i['name']:20} {i['kind']:8} {i['severity'].upper():9} {fmt_age(i['age_days']):10} "
+              f"{(i['age_source'][:40]):42} {flag}{sim}")
+
+
+def write_html(meta, items):
+    s = summary(items)
+    e = html.escape
+    cards = []
+    for i in items:
+        vars_html = "".join(
+            f"<li><code>{e(v['name'])}</code>"
+            + (f" <span class='fp'>{e(v['fingerprint'])}</span>" if v["secret"] else " <span class='cfg'>config</span>")
+            + "</li>" for v in i["env_vars"]) or "<li class='muted'>none</li>"
+        files_html = "".join(f"<li><code>{e(f)}</code></li>" for f in i["files"]) or \
+            "<li class='muted'>not referenced in code</li>"
+        age_label = fmt_age(i["age_days"]) + (" <em>(simulated)</em>" if i["simulated"] else "")
+        stale = "<span class='badge stale'>STALE</span>" if i["stale"] else ""
+        cards.append(f"""
+<article class="card sev-{i['severity']}{' is-stale' if i['stale'] else ''}">
+  <header>
+    <div><h2>{e(i['name'])}</h2><div class="sub">{e(i['provider'])} · {e(i['service'])} · {e(i['kind'])}</div></div>
+    <div class="badges">{stale}<span class="badge {i['severity']}">{i['severity'].upper()}</span></div>
+  </header>
+  <p class="impact">{e(i['impact'])}</p>
+  <dl>
+    <dt>Plan / cost</dt><dd>{e(i['cost_label'] or '')}</dd>
+    <dt>Credential age</dt><dd>{age_label}<div class="src">source: {e(i['age_source'])}</div></dd>
+    <dt>Env vars</dt><dd><ul>{vars_html}</ul></dd>
+    <dt>Used in</dt><dd><ul>{files_html}</ul></dd>
+  </dl>
+</article>""")
+    page = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Service Bill of Materials</title>
+<style>
+:root{{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--muted:#8b949e;
+--crit:#ff5c5c;--high:#ff9f43;--med:#f5d547;--low:#3fb950;--accent:#7aa2ff}}
+*{{box-sizing:border-box}}
+body{{margin:0;background:var(--bg);color:var(--fg);font:20px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;padding:32px 40px}}
+h1{{font-size:44px;margin:0 0 4px}} .meta{{color:var(--muted);font-size:18px;margin-bottom:28px}}
+.summary{{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}}
+.stat{{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px}}
+.stat .n{{font-size:52px;font-weight:700;line-height:1.1}} .stat .l{{color:var(--muted);font-size:18px;text-transform:uppercase;letter-spacing:.06em}}
+.stat.bad .n{{color:var(--crit)}} .stat.good .n{{color:var(--low)}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:20px}}
+.card{{background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--low);border-radius:14px;padding:20px 24px}}
+.card.sev-critical{{border-left-color:var(--crit)}} .card.sev-high{{border-left-color:var(--high)}} .card.sev-medium{{border-left-color:var(--med)}}
+.card.is-stale{{box-shadow:0 0 0 2px var(--crit)}}
+.card header{{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}}
+h2{{margin:0;font-size:28px}} .sub{{color:var(--muted);font-size:17px}}
+.badges{{display:flex;gap:8px;flex-shrink:0}}
+.badge{{font-weight:800;font-size:16px;padding:6px 12px;border-radius:999px;color:#0d1117;letter-spacing:.05em}}
+.badge.critical{{background:var(--crit)}} .badge.high{{background:var(--high)}} .badge.medium{{background:var(--med)}} .badge.low{{background:var(--low)}}
+.badge.stale{{background:transparent;color:var(--crit);border:2px solid var(--crit)}}
+.impact{{font-size:21px;margin:14px 0}}
+dl{{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;margin:0;font-size:18px}}
+dt{{color:var(--muted)}} dd{{margin:0}} ul{{margin:0;padding:0;list-style:none}}
+code{{font:17px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}}
+.fp{{font:16px ui-monospace,Menlo,monospace;background:#21262d;padding:1px 8px;border-radius:6px;color:var(--muted)}}
+.cfg{{font-size:14px;color:var(--muted)}} .src{{color:var(--muted);font-size:15px}} em{{color:var(--high);font-style:normal;font-weight:700}}
+.muted{{color:var(--muted)}}
+footer{{color:var(--muted);font-size:15px;margin-top:28px}}
+@media (max-width:700px){{body{{padding:16px}}.summary{{grid-template-columns:repeat(2,1fr)}}.grid{{grid-template-columns:1fr}}dl{{grid-template-columns:1fr}}}}
+</style></head><body>
+<h1>Service Bill of Materials</h1>
+<div class="meta">Project <b>{e(meta['project'])}</b> · generated {e(meta['generated_at'])} · stale threshold {meta['max_age_days']} days · CycloneDX 1.5: <code>sbom.cdx.json</code></div>
+<section class="summary">
+  <div class="stat"><div class="n">{s['resources']}</div><div class="l">resources ({s['services']} services)</div></div>
+  <div class="stat"><div class="n">{e(s['monthly_cost'])}</div><div class="l">monthly cost</div></div>
+  <div class="stat {'bad' if s['stale'] else 'good'}"><div class="n">{s['stale']}</div><div class="l">stale credentials</div></div>
+  <div class="stat {'bad' if s['critical'] else 'good'}"><div class="n">{s['critical']}</div><div class="l">critical exposures</div></div>
+</section>
+<section class="grid">{''.join(cards)}</section>
+<footer>Secret values are never read or shown. Fingerprints are the CLI's own redacted previews (≤4 chars). Ages marked (simulated) were backdated with <code>sbom demo-age</code>.</footer>
+</body></html>"""
+    HTML_OUT.write_text(page)
+
+
+# ---------- rotate / demo-age ----------
+
+def resolve(items, target):
+    t = target.lower()
+    exact = [i for i in items if i["name"].lower() == t]
+    if exact:
+        return exact
+    # provider name: rotate every resource from that provider that holds secrets
+    return [i for i in items if i["provider"].lower() == t and any(v["secret"] for v in i["env_vars"])]
+
+
+def cmd_rotate(args):
+    items = scan(args.max_age, quiet=True)
+    if args.stale:
+        targets = [i for i in items if i["stale"]]
+    elif args.target:
+        targets = resolve(items, args.target)
+        if not targets:
+            sys.exit(f"error: no resource or provider matches '{args.target}'")
+    else:
+        sys.exit("error: pass --stale or a provider/resource name")
+    if not targets:
+        print("nothing to rotate: no stale credentials")
+        return
+    print("Will rotate:")
+    for i in targets:
+        names = ", ".join(v["name"] for v in i["env_vars"] if v["secret"])
+        print(f"  {i['name']:20} {i['severity'].upper():9} age {fmt_age(i['age_days'])}  [{names}]")
+    if not args.yes:
+        if not sys.stdin.isatty():
+            sys.exit("aborted: pass --yes to rotate non-interactively")
+        if input("Proceed? [y/N] ").strip().lower() not in ("y", "yes"):
+            sys.exit("aborted")
+
+    ledger = load_ledger()
+    failed = []
+    for i in targets:
+        print(f"→ stripe projects rotate {i['name']} … ", end="", flush=True)
+        res = stripe("rotate", i["name"], "--yes")
+        if res.get("ok"):
+            print("done")
+            ledger["resources"].setdefault(i["name"], {"first_seen": iso(now())})
+            ledger["resources"][i["name"]]["last_rotated"] = iso(now())
+            ledger["resources"][i["name"]].pop("simulated", None)
+        else:
+            err = res.get("error") or {}
+            print(f"FAILED ({err.get('code')}): {err.get('message', '')[:200]}")
+            failed.append(i["name"])
+    save_ledger(ledger)
+
+    print("→ stripe projects env --pull … ", end="", flush=True)
+    res = stripe("env", "--pull")
+    print("done" if res.get("ok") else f"FAILED ({(res.get('error') or {}).get('code')})")
+    print()
+    scan(args.max_age)
+    if failed:
+        sys.exit(f"rotation failed for: {', '.join(failed)}")
+
+
+def cmd_demo_age(args):
+    items = scan(args.max_age, quiet=True)
+    targets = resolve(items, args.target)
+    if not targets:
+        sys.exit(f"error: no resource or provider matches '{args.target}'")
+    ledger = load_ledger()
+    for i in targets:
+        entry = ledger["resources"].setdefault(i["name"], {"first_seen": iso(now())})
+        entry["simulated"] = {"issued_at": iso(now() - dt.timedelta(days=args.days)),
+                              "set_at": iso(now()),
+                              "cli_issued_at_when_set": entry.get("cli_issued_at")}
+        print(f"backdated {i['name']} to {args.days} days old (simulated)")
+    save_ledger(ledger)
+    scan(args.max_age)
+
+
+# ---------- vulns: package SBOM -> OSV.dev ----------
+
+def cvss3(vec):
+    if not vec or not vec.startswith("CVSS:3"):
+        return None
+    m = dict(x.split(":") for x in vec.split("/")[1:] if ":" in x)
+    try:
+        changed = m["S"] == "C"
+        av = {"N": .85, "A": .62, "L": .55, "P": .2}[m["AV"]]
+        ac = {"L": .77, "H": .44}[m["AC"]]
+        ui = {"N": .85, "R": .62}[m["UI"]]
+        pr = {"N": .85, "L": .68 if changed else .62, "H": .5 if changed else .27}[m["PR"]]
+        c, i, a = ({"H": .56, "L": .22, "N": 0}[m[k]] for k in ("C", "I", "A"))
+    except KeyError:
+        return None
+    iss = 1 - (1 - c) * (1 - i) * (1 - a)
+    impact = 7.52 * (iss - .029) - 3.25 * (iss - .02) ** 15 if changed else 6.42 * iss
+    if impact <= 0:
+        return 0.0
+    base = (impact + 8.22 * av * ac * pr * ui) * (1.08 if changed else 1)
+    return __import__("math").ceil(min(base, 10) * 10 - 1e-9) / 10
+
+
+def vuln_severity(v):
+    score = cvss3(next((s["score"] for s in v.get("severity", []) if s.get("type") == "CVSS_V3"), None))
+    ds = ((v.get("database_specific") or {}).get("severity") or "").lower()
+    if ds:
+        return ("medium" if ds == "moderate" else ds), score
+    if score is None:
+        return "unknown", None
+    return ("critical" if score >= 9 else "high" if score >= 7 else "medium" if score >= 4 else "low"), score
+
+
+def sbom_packages(doc):
+    if doc.get("bomFormat") == "CycloneDX":
+        out, stack = [], list(doc.get("components") or [])
+        while stack:
+            c = stack.pop()
+            out.append(c.get("purl"))
+            stack.extend(c.get("components") or [])
+        return out
+    if doc.get("spdxVersion"):
+        return [next((r.get("referenceLocator") for r in p.get("externalRefs") or []
+                      if (r.get("referenceType") or "").lower() == "purl"), None) for p in doc.get("packages") or []]
+    sys.exit("error: not a CycloneDX or SPDX JSON document")
+
+
+def osv(path, body=None):
+    import urllib.request
+    req = urllib.request.Request("https://api.osv.dev/v1/" + path, method="POST" if body else "GET",
+                                 data=json.dumps(body).encode() if body else None,
+                                 headers={"content-type": "application/json", "user-agent": "sbom-cli"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+
+def cmd_vulns(args):
+    from concurrent.futures import ThreadPoolExecutor
+    doc = json.loads(Path(args.file).read_text())
+    purls = sbom_packages(doc)
+    queryable = [p.split("?")[0] for p in purls if p and p.startswith("pkg:") and "@" in p]
+    if doc.get("services") and not purls:
+        sys.exit("this is a service SBoM (no packages); run `sbom scan` for services")
+    print(f"Checking {len(queryable)} packages against OSV.dev …")
+    res = []
+    for k in range(0, len(queryable), 500):
+        chunk = queryable[k:k + 500]
+        out = osv("querybatch", {"queries": [{"package": {"purl": p}} for p in chunk]})
+        res += [(p, [v["id"] for v in r.get("vulns") or []]) for p, r in zip(chunk, out["results"])]
+    ids = sorted({i for _, vs in res for i in vs})
+    with ThreadPoolExecutor(8) as ex:
+        details = dict(zip(ids, ex.map(lambda i: osv(f"vulns/{i}"), ids)))
+    rows = []
+    for purl, vids in res:
+        seen = set()
+        for vid in vids:
+            v = details[vid]
+            keys = {vid, *(v.get("aliases") or [])}
+            if keys & seen:
+                continue  # same CVE published under several advisory ids
+            seen |= keys
+            sev, score = vuln_severity(v)
+            cve = next((a for a in v.get("aliases") or [] if a.startswith("CVE-")), vid)
+            rows.append((SEV_RANK.get(sev, 0), score or 0, purl, sev, score, cve, v.get("summary") or ""))
+    rows.sort(key=lambda r: (-r[0], -r[1]))
+    vulnerable = {r[2] for r in rows}
+    count = lambda s: sum(1 for r in rows if r[3] == s)
+    print(f"{len(purls)} packages · {len(vulnerable)} vulnerable · {len(rows)} known vulnerabilities · "
+          f"{count('critical')} critical · {count('high')} high")
+    shown = rows if args.all else [r for r in rows if r[3] in ("critical", "high")]
+    for _, _, purl, sev, score, cve, summ in shown:
+        name = purl[4:]
+        print(f"  {sev.upper():9}{(f'{score:.1f}' if score else ''):5} {cve:18} {name[:52]:52} {summ[:56]}")
+    if len(shown) < len(rows):
+        print(f"  … {len(rows) - len(shown)} medium/low not shown (use --all)")
+    if unscannable := len(purls) - len(queryable):
+        print(f"{unscannable} component(s) had no purl and were skipped")
+
+
+def read_env_value(key):
+    """Read one value from .env for in-process use only. Never printed or logged."""
+    for line in (ROOT / ".env").read_text().splitlines():
+        k, sep, val = line.partition("=")
+        if sep and k.strip().removeprefix("export ").strip() == key:
+            return val.strip().strip('"').strip("'")
+    return None
+
+
+def cmd_deploy(args):
+    import io
+    import urllib.request
+    import zipfile
+    site = ROOT / "site"
+    if CDX_OUT.exists():  # publish the latest service SBoM, minus Stripe account/resource ids
+        doc = json.loads(CDX_OUT.read_text())
+        doc["metadata"].pop("properties", None)
+        for s in doc.get("services", []):
+            s["properties"] = [p for p in s.get("properties", []) if not p["name"].startswith("stripe:")]
+        (site / "samples" / "services.cdx.json").write_text(json.dumps(doc, indent=2))
+    token, site_id = read_env_value("NETLIFY_NETLIFY_AUTH_TOKEN"), read_env_value("NETLIFY_NETLIFY_SITE_ID")
+    if not (token and site_id):
+        stripe("env", "--pull")
+        token, site_id = read_env_value("NETLIFY_NETLIFY_AUTH_TOKEN"), read_env_value("NETLIFY_NETLIFY_SITE_ID")
+    if not (token and site_id):
+        sys.exit("error: Netlify credentials missing; run `stripe projects add netlify/project --name sbom-site`")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(site.rglob("*")):
+            if f.is_file():
+                z.write(f, f.relative_to(site).as_posix())
+    print(f"→ uploading site/ ({buf.tell() // 1024} KB) to Netlify … ", end="", flush=True)
+    req = urllib.request.Request(f"https://api.netlify.com/api/v1/sites/{site_id}/deploys", data=buf.getvalue(),
+                                 method="POST", headers={"Authorization": f"Bearer {token}",
+                                                         "Content-Type": "application/zip", "User-Agent": "sbom-cli"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            dep = json.load(r)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"FAILED (HTTP {e.code})")
+    print("done")
+    print(f"live at {dep.get('ssl_url') or dep.get('url')}")
+
+
+def main():
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--max-age", type=int, default=DEFAULT_MAX_AGE, help="stale threshold in days (default 30)")
+    ap = argparse.ArgumentParser(prog="sbom", description="Service Bill of Materials for Stripe Projects")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("scan", parents=[common], help="inventory services, write sbom.cdx.json + report.html")
+    r = sub.add_parser("rotate", parents=[common], help="rotate credentials via stripe projects rotate")
+    r.add_argument("target", nargs="?", help="provider (e.g. neon) or resource (e.g. neon-postgres)")
+    r.add_argument("--stale", action="store_true", help="rotate every STALE credential")
+    r.add_argument("--yes", "-y", action="store_true", help="skip confirmation")
+    d = sub.add_parser("demo-age", parents=[common], help="backdate a credential for demos (labelled simulated)")
+    d.add_argument("target")
+    d.add_argument("days", type=int)
+    v = sub.add_parser("vulns", help="check a package SBOM (CycloneDX/SPDX JSON) against OSV.dev")
+    v.add_argument("file")
+    v.add_argument("--all", action="store_true", help="also list medium/low findings")
+    sub.add_parser("deploy", help="publish site/ (scanner + latest service SBoM) to Netlify")
+    args = ap.parse_args()
+    {"scan": lambda a: scan(a.max_age), "rotate": cmd_rotate, "demo-age": cmd_demo_age,
+     "vulns": cmd_vulns, "deploy": cmd_deploy}[args.cmd](args)
+
+
+if __name__ == "__main__":
+    main()

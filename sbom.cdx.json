@@ -1,0 +1,858 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:ac50b143-f4b7-459b-b2de-168760465d6b",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-11T12:51:49.834Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "sbom",
+          "version": "0.1.0",
+          "description": "Service Bill of Materials for Stripe Projects"
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "bom-ref": "app",
+      "name": "sbom-demo"
+    },
+    "properties": [
+      {
+        "name": "stripe:projects:project_id",
+        "value": "project_61VjyWZDlEA9F4vIt16Rp2MFPPGCzQm6SfzfApSpMF32"
+      }
+    ]
+  },
+  "services": [
+    {
+      "bom-ref": "service:clerk-auth",
+      "provider": {
+        "name": "Clerk"
+      },
+      "group": "Clerk",
+      "name": "clerk-auth",
+      "description": "Clerk auth (service) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://api.clerk.com"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "service"
+        },
+        {
+          "name": "sbom:category",
+          "value": "auth"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free with hobby"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free with hobby"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "CLERK_APPLICATION_ID,CLERK_DASHBOARD_URL,CLERK_ENVIRONMENTS"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "CLERK_ENVIRONMENTS"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:25:10.272Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "critical"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Can impersonate any user, mint sessions and read your entire user directory."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": "app/lib/auth.js"
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXkzYGqkrddNU16Rp2MFPPGCzQm6SfzfApSpMLZY"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:neon-postgres",
+      "provider": {
+        "name": "Neon"
+      },
+      "group": "Neon",
+      "name": "neon-postgres",
+      "description": "Neon postgres (service) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://console.neon.tech"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "service"
+        },
+        {
+          "name": "sbom:category",
+          "value": "database,auth"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "NEON_POSTGRES_BRANCH_ID,NEON_POSTGRES_BRANCH_NAME,NEON_POSTGRES_CONNECTION_STRING,NEON_POSTGRES_DATABASE_NAME,NEON_POSTGRES_ORG_ID,NEON_POSTGRES_PROJECT_ID"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "NEON_POSTGRES_CONNECTION_STRING"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:42:32.028Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "critical"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Full read/write access to customer data; an attacker can dump or drop every table."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": "app/lib/db.js,app/routes/orders.js"
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXaYBtdRW5NuR16Rp2MFPPGCzQm6SfzfApSpM00W"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:openrouter-api",
+      "provider": {
+        "name": "OpenRouter"
+      },
+      "group": "OpenRouter",
+      "name": "openrouter-api",
+      "description": "OpenRouter api (service) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://openrouter.ai/api/v1"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "Confidential"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "service"
+        },
+        {
+          "name": "sbom:category",
+          "value": "ai"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "OPENROUTER_API_API_KEY,OPENROUTER_API_TYPE"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "OPENROUTER_API_API_KEY"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:26:52.623Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "high"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Attacker runs LLM calls billed to you: unbounded spend, plus prompt/response data exposure."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": "app/lib/ai.js"
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXw9JCVKN2UPw16Rp2MFPPGCzQm6SfzfApSpM4au"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:posthog-analytics",
+      "provider": {
+        "name": "PostHog"
+      },
+      "group": "PostHog",
+      "name": "posthog-analytics",
+      "description": "PostHog analytics (service) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://eu.posthog.com"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "service"
+        },
+        {
+          "name": "sbom:category",
+          "value": "analytics,feature_flags,ai,observability"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "POSTHOG_ANALYTICS_API_KEY,POSTHOG_ANALYTICS_HOST,POSTHOG_ANALYTICS_PERSONAL_API_KEY"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "POSTHOG_ANALYTICS_API_KEY,POSTHOG_ANALYTICS_PERSONAL_API_KEY"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:26:06.230Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "high"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Personal API key grants admin read of all tracked events and user data, plus event injection."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": "app/lib/analytics.js"
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyYeKF9Y8wRw8J16Rp2MFPPGCzQm6SfzfApSpMSnA"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:sbom-site",
+      "provider": {
+        "name": "Netlify"
+      },
+      "group": "Netlify",
+      "name": "sbom-site",
+      "description": "Netlify project (service) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://api.netlify.com"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "Internal"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "service"
+        },
+        {
+          "name": "sbom:category",
+          "value": "compute"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "NETLIFY_NETLIFY_AUTH_TOKEN,NETLIFY_NETLIFY_SITE_ID"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "NETLIFY_NETLIFY_AUTH_TOKEN"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:51:11.092Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "high"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Can deploy arbitrary code to your live site: defacement, phishing or credential harvesting."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": ""
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61Vjywvjjl3lj6b9g16Rp2MFPPGCzQm6SfzfApSpMDqC"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:openrouter-plan",
+      "provider": {
+        "name": "OpenRouter"
+      },
+      "group": "OpenRouter",
+      "name": "openrouter-plan",
+      "description": "OpenRouter free (plan) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://openrouter.ai/api/v1"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "Confidential"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "plan"
+        },
+        {
+          "name": "sbom:category",
+          "value": "ai"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "OPENROUTER_PLAN_API_KEY,OPENROUTER_PLAN_TYPE"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "OPENROUTER_PLAN_API_KEY"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:25:18.659Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "high"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Attacker runs LLM calls billed to you: unbounded spend, plus prompt/response data exposure."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": ""
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXseZSjWR9kPB16Rp2MFPPGCzQm6SfzfApSpMC4O"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:posthog-plan",
+      "provider": {
+        "name": "PostHog"
+      },
+      "group": "PostHog",
+      "name": "posthog-plan",
+      "description": "PostHog free (plan) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://eu.posthog.com"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "plan"
+        },
+        {
+          "name": "sbom:category",
+          "value": "analytics,feature_flags,ai,observability"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "POSTHOG_PLAN_API_KEY,POSTHOG_PLAN_HOST,POSTHOG_PLAN_PERSONAL_API_KEY"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": "POSTHOG_PLAN_API_KEY,POSTHOG_PLAN_PERSONAL_API_KEY"
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:26:02.709Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "high"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Personal API key grants admin read of all tracked events and user data, plus event injection."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": ""
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyYan1WRj2z5ZY16Rp2MFPPGCzQm6SfzfApSpMMCO"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:clerk-plan",
+      "provider": {
+        "name": "Clerk"
+      },
+      "group": "Clerk",
+      "name": "clerk-plan",
+      "description": "Clerk hobby (plan) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://api.clerk.com"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "plan"
+        },
+        {
+          "name": "sbom:category",
+          "value": "auth"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "CLERK_PLAN"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": ""
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:25:07.015Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "low"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Identifiers and config only; no secret material in this resource."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": ""
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXiTRRfgTxzBN16Rp2MFPPGCzQm6SfzfApSpMBIW"
+        }
+      ]
+    },
+    {
+      "bom-ref": "service:neon-plan",
+      "provider": {
+        "name": "Neon"
+      },
+      "group": "Neon",
+      "name": "neon-plan",
+      "description": "Neon free (plan) provisioned via Stripe Projects",
+      "endpoints": [
+        "https://console.neon.tech"
+      ],
+      "authenticated": true,
+      "x-trust-boundary": true,
+      "data": [
+        {
+          "flow": "bi-directional",
+          "classification": "PII"
+        }
+      ],
+      "properties": [
+        {
+          "name": "sbom:kind",
+          "value": "plan"
+        },
+        {
+          "name": "sbom:category",
+          "value": "database"
+        },
+        {
+          "name": "sbom:plan",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:cost:monthly_usd",
+          "value": "0.00"
+        },
+        {
+          "name": "sbom:cost:label",
+          "value": "Free"
+        },
+        {
+          "name": "sbom:credential:env_vars",
+          "value": "NEON_PLAN_ORG_ID"
+        },
+        {
+          "name": "sbom:credential:secret_env_vars",
+          "value": ""
+        },
+        {
+          "name": "sbom:credential:issued_at",
+          "value": "2026-11-11T12:24:51.091Z"
+        },
+        {
+          "name": "sbom:credential:age_days",
+          "value": "0.0"
+        },
+        {
+          "name": "sbom:credential:age_source",
+          "value": "stripe projects status: last_revealed_at"
+        },
+        {
+          "name": "sbom:credential:simulated",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:stale",
+          "value": "false"
+        },
+        {
+          "name": "sbom:credential:max_age_days",
+          "value": "30"
+        },
+        {
+          "name": "sbom:blast_radius:severity",
+          "value": "low"
+        },
+        {
+          "name": "sbom:blast_radius:impact",
+          "value": "Identifiers and config only; no secret material in this resource."
+        },
+        {
+          "name": "sbom:blast_radius:referencing_files",
+          "value": ""
+        },
+        {
+          "name": "stripe:projects:resource_id",
+          "value": "fres_61VjyXRs6DMSWMHCP16Rp2MFPPGCzQm6SfzfApSpMEnw"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "app",
+      "dependsOn": [
+        "service:clerk-auth",
+        "service:neon-postgres",
+        "service:openrouter-api",
+        "service:posthog-analytics",
+        "service:sbom-site",
+        "service:openrouter-plan",
+        "service:posthog-plan",
+        "service:clerk-plan",
+        "service:neon-plan"
+      ]
+    }
+  ]
+}
