@@ -1,0 +1,179 @@
+{
+  "version": 4,
+  "project": {
+    "catalog": "prod",
+    "initializedAt": "2026-11-11T12:23:55.489Z",
+    "merchantDisplayName": null,
+    "merchantId": "acct_1QfeOsEyyGNEzfxp",
+    "projectId": "project_61VjyWZDlEA9F4vIt16Rp2MFPPGCzQm6SfzfApSpMF32",
+    "projectName": "sbom-demo"
+  },
+  "providers": {
+    "clerk": {
+      "accountRequestId": "facctrq_61VjyXeITMtkaMPbF16Rp2MFPPGCzQm6SfzfApSpMJ7Q",
+      "configuration": {},
+      "linkedAt": "2026-11-11T12:25:05.812Z",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "redirectUrl": null,
+      "requestedAt": "2026-11-11T12:25:03.052Z",
+      "status": "complete"
+    },
+    "neon": {
+      "accountRequestId": "facctrq_61VjyXOvoa29QZDqD16Rp2MFPPGCzQm6SfzfApSpMI3M",
+      "configuration": {},
+      "linkedAt": "2026-11-11T12:24:49.267Z",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "redirectUrl": null,
+      "requestedAt": "2026-11-11T12:24:46.633Z",
+      "status": "complete"
+    },
+    "netlify": {
+      "accountRequestId": "facctrq_61VjywtHctugQrLgk16Rp2MFPPGCzQm6SfzfApSpMXqK",
+      "configuration": {},
+      "linkedAt": "2026-11-11T12:51:09.498Z",
+      "providerId": "prvdr_61UXju1taz9UCvkk95GEK",
+      "providerName": "Netlify",
+      "redirectUrl": null,
+      "requestedAt": "2026-11-11T12:51:08.018Z",
+      "status": "complete"
+    },
+    "openrouter": {
+      "accountRequestId": "facctrq_61VjyXqutFoWs8hYj16Rp2MFPPGCzQm6SfzfApSpM6Ua",
+      "configuration": {},
+      "linkedAt": "2026-11-11T12:25:16.542Z",
+      "providerId": "prvdr_61URImmFACEuDHEx651IO",
+      "providerName": "OpenRouter",
+      "redirectUrl": null,
+      "requestedAt": "2026-11-11T12:25:15.117Z",
+      "status": "complete"
+    },
+    "posthog": {
+      "accountRequestId": "facctrq_61VjyYXU0OPcO8DvB16Rp2MFPPGCzQm6SfzfApSpMTyS",
+      "configuration": {
+        "region": "EU"
+      },
+      "linkedAt": "2026-11-11T12:26:00.315Z",
+      "providerId": "prvdr_61UGMHNyOleb3A55m5Pg8",
+      "providerName": "PostHog",
+      "redirectUrl": null,
+      "requestedAt": "2026-11-11T12:25:57.688Z",
+      "status": "complete"
+    }
+  },
+  "resources": {
+    "clerk-auth": {
+      "configuration": {
+        "app_name": "sbom-demo"
+      },
+      "createdAt": "2026-11-11T12:25:09.977Z",
+      "lastRevealedAt": "2026-11-11T12:25:10.272Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "clerk-auth",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "resourceId": "fres_61VjyXkzYGqkrddNU16Rp2MFPPGCzQm6SfzfApSpMLZY",
+      "serviceId": "auth"
+    },
+    "clerk-plan": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:25:06.716Z",
+      "lastRevealedAt": "2026-11-11T12:25:07.015Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "clerk-plan",
+      "providerId": "prvdr_61UGOeSW4e0T9Etwn537w",
+      "providerName": "Clerk",
+      "resourceId": "fres_61VjyXiTRRfgTxzBN16Rp2MFPPGCzQm6SfzfApSpMBIW",
+      "serviceId": "hobby"
+    },
+    "neon-plan": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:24:50.808Z",
+      "lastRevealedAt": "2026-11-11T12:24:51.091Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "neon-plan",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61VjyXRs6DMSWMHCP16Rp2MFPPGCzQm6SfzfApSpMEnw",
+      "serviceId": "free"
+    },
+    "neon-postgres": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:25:00.227Z",
+      "lastRevealedAt": "2026-11-11T12:42:32.028Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "neon-postgres",
+      "providerId": "prvdr_61UH8uNXFdoJUJOtT54AC",
+      "providerName": "Neon",
+      "resourceId": "fres_61VjyXaYBtdRW5NuR16Rp2MFPPGCzQm6SfzfApSpM00W",
+      "serviceId": "postgres"
+    },
+    "openrouter-api": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:25:21.913Z",
+      "lastRevealedAt": "2026-11-11T12:26:52.623Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "openrouter-api",
+      "providerId": "prvdr_61URImmFACEuDHEx651IO",
+      "providerName": "OpenRouter",
+      "resourceId": "fres_61VjyXw9JCVKN2UPw16Rp2MFPPGCzQm6SfzfApSpM4au",
+      "serviceId": "api"
+    },
+    "openrouter-plan": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:25:18.351Z",
+      "lastRevealedAt": "2026-11-11T12:25:18.659Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "openrouter-plan",
+      "providerId": "prvdr_61URImmFACEuDHEx651IO",
+      "providerName": "OpenRouter",
+      "resourceId": "fres_61VjyXseZSjWR9kPB16Rp2MFPPGCzQm6SfzfApSpMC4O",
+      "serviceId": "free"
+    },
+    "posthog-analytics": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:26:05.902Z",
+      "lastRevealedAt": "2026-11-11T12:26:06.230Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "posthog-analytics",
+      "providerId": "prvdr_61UGMHNyOleb3A55m5Pg8",
+      "providerName": "PostHog",
+      "resourceId": "fres_61VjyYeKF9Y8wRw8J16Rp2MFPPGCzQm6SfzfApSpMSnA",
+      "serviceId": "analytics"
+    },
+    "posthog-plan": {
+      "configuration": {},
+      "createdAt": "2026-11-11T12:26:02.392Z",
+      "lastRevealedAt": "2026-11-11T12:26:02.709Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "posthog-plan",
+      "providerId": "prvdr_61UGMHNyOleb3A55m5Pg8",
+      "providerName": "PostHog",
+      "resourceId": "fres_61VjyYan1WRj2z5ZY16Rp2MFPPGCzQm6SfzfApSpMMCO",
+      "serviceId": "free"
+    },
+    "sbom-site": {
+      "configuration": {
+        "name": "sbom-demo"
+      },
+      "createdAt": "2026-11-11T12:51:10.690Z",
+      "lastRevealedAt": "2026-11-11T12:51:11.092Z",
+      "lastStatus": "complete",
+      "livemode": true,
+      "name": "sbom-site",
+      "providerId": "prvdr_61UXju1taz9UCvkk95GEK",
+      "providerName": "Netlify",
+      "resourceId": "fres_61Vjywvjjl3lj6b9g16Rp2MFPPGCzQm6SfzfApSpMDqC",
+      "serviceId": "project"
+    }
+  }
+}
